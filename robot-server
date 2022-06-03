@@ -1,0 +1,119 @@
+#include <WiFi.h>
+#include <WebServer.h>
+
+/*Put your SSID & Password*/
+const char* ssid = ""; // Enter SSID here
+const char* password = "";  //Enter Password here
+
+WebServer server(80);
+
+
+// ledPin refers to ESP32 GPIO 23
+const int ledPin = 2;
+const int in1 = 25;
+const int in2 = 33;
+const int enA = 32;
+
+// Setting PWM properties
+const int freq = 30000;
+const int pwmChannel = 0;
+const int resolution = 8;
+
+
+// the setup function runs once when you press reset or power the board
+void setup() {
+  Serial.begin(115200);
+  // initialize digital pin ledPin as an output.
+  pinMode(ledPin, OUTPUT);
+  
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);
+  pinMode(enA, OUTPUT);
+
+ // configure PWM functionalitites
+  ledcSetup(pwmChannel, freq, resolution);
+  ledcAttachPin(enA, pwmChannel);
+
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+
+// starting web server
+Serial.println("Connecting to ");
+  Serial.println(ssid);
+
+  //connect to your local wi-fi network
+  WiFi.begin(ssid, password);
+
+  //check wi-fi is connected to wi-fi network
+  while (WiFi.status() != WL_CONNECTED) {
+  delay(1000);
+  Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected..!");
+  Serial.print("Got IP: ");  Serial.println(WiFi.localIP());
+
+  server.on("/", handle_OnConnect);
+  server.on("/motor/start", startMotor);
+  server.on("/motor/stop", stopMotor);
+  server.on("/motor/accelerate", accelerateMotor);
+ 
+  
+
+  server.begin();
+  Serial.println("HTTP server started");
+
+}
+
+void handle_OnConnect() {
+  Serial.println("Client connect to root");
+  server.send(200, "text/html", "<b>Welcome to Robot</b>"); 
+}
+
+void startMotor (){
+    Serial.printf("starting motor at max speed\n");
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  server.send(200, "text/html", "Motor started"); 
+  
+}
+
+void stopMotor () {
+    Serial.printf("stopping motor\n\n");
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  server.send(200, "text/html", "Motor stopped"); 
+  
+}
+
+void accelerateMotor () {
+
+   server.send(200, "text/html", "Motor accelerated"); 
+ 
+    // Accelerate from zero to maximum speed
+  Serial.printf("accelerating motor\n");
+
+  for (int i = 100; i < 256; i++) {
+    ledcWrite(pwmChannel, i);
+    //analogWrite(enA, i);
+    delay(50);
+  }  
+
+}
+
+// the loop function runs over and over again forever
+void loop() {
+    server.handleClient();
+
+  //Serial.printf("Blink on-board led\n");
+
+  digitalWrite(ledPin, HIGH);   // turn the LED on (HIGH is the voltage level)
+  delay(100);                  // wait for a second
+  digitalWrite(ledPin, LOW);    // turn the LED off by making the voltage LOW
+  delay(100);                  // wait for a second
+
+  //delay(5000);
+  //digitalWrite(in1, LOW);
+  //digitalWrite(in2, LOW);
+  
+}
