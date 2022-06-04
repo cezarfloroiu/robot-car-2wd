@@ -1,44 +1,116 @@
-#include <WiFi.h>
-#include <WebServer.h>
+#include "WiFi.h"
+#include "ESPAsyncWebServer.h"
 
 /*Put your SSID & Password*/
-const char* ssid = ""; // Enter SSID here
+const char* ssid = "Livebox-"; // Enter SSID here
 const char* password = "";  //Enter Password here
 
-WebServer server(80);
+AsyncWebServer server(80);
 
 
-// ledPin refers to ESP32 GPIO 23
-const int ledPin = 2;
+const int ledPin = 19;
+
+// motor 1
 const int in1 = 25;
 const int in2 = 33;
 const int enA = 32;
 
+// motor 2
+const int in3 = 26;
+const int in4 = 27;
+const int enB = 14;
+
+
 // Setting PWM properties
 const int freq = 30000;
-const int pwmChannel = 0;
+const int pwmChannel1 = 0;
+const int pwmChannel2 = 1;
 const int resolution = 8;
 
+int action = 0; // 0 : nothing, 1 : startMotor, 2: stopMotor, ...
+
+// HTML web page
+const char index_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML><html>
+  <head>
+    <title>ESP Pushbutton Web Server</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body { font-family: Arial; text-align: center; margin:0px auto; padding-top: 30px;}
+      .button {
+        padding: 10px 20px;
+        font-size: 24px;
+        text-align: center;
+        outline: none;
+        color: #fff;
+        background-color: #2f4468;
+        border: none;
+        border-radius: 5px;
+        box-shadow: 0 6px #999;
+        cursor: pointer;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: rgba(0,0,0,0);
+      }  
+      .button:hover {background-color: #1f2e45}
+      .button:active {
+        background-color: #1f2e45;
+        box-shadow: 0 4px #666;
+        transform: translateY(2px);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>B Robot</h1>
+    <br />
+    <button class="button" onClick="doAction('forward');">FORWARD</button>
+    <button class="button" onClick="doAction('backward');">BACKWARD</button>
+    <br /><br />
+    <button class="button" onClick="doAction('left');">LEFT</button>
+    <button class="button" onClick="doAction('right');">RIGHT</button>
+    <br /><br />    
+    <button class="button" onClick="doAction('stop');">STOP</button>
+    
+   <script>
+   function doAction(x) {
+     var xhr = new XMLHttpRequest();
+     xhr.open("GET", "/" + x, true);
+     xhr.send();
+   }
+  </script>
+  </body>
+</html>)rawliteral";
 
 // the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(115200);
   // initialize digital pin ledPin as an output.
   pinMode(ledPin, OUTPUT);
-  
   pinMode(in1, OUTPUT);
   pinMode(in2, OUTPUT);
   pinMode(enA, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  pinMode(enB, OUTPUT);
 
  // configure PWM functionalitites
-  ledcSetup(pwmChannel, freq, resolution);
-  ledcAttachPin(enA, pwmChannel);
+  ledcSetup(pwmChannel1, freq, resolution);
+  ledcAttachPin(enA, pwmChannel1);
+  ledcSetup(pwmChannel2, freq, resolution);
+  ledcAttachPin(enB, pwmChannel2);
 
+  digitalWrite(ledPin, LOW);
   digitalWrite(in1, LOW);
   digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
 
-// starting web server
-Serial.println("Connecting to ");
+  // starting web server
+  Serial.println("Connecting to ");
   Serial.println(ssid);
 
   //connect to your local wi-fi network
@@ -53,67 +125,215 @@ Serial.println("Connecting to ");
   Serial.println("WiFi connected..!");
   Serial.print("Got IP: ");  Serial.println(WiFi.localIP());
 
-  server.on("/", handle_OnConnect);
-  server.on("/motor/start", startMotor);
-  server.on("/motor/stop", stopMotor);
-  server.on("/motor/accelerate", accelerateMotor);
- 
-  
+
+
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send_P(200, "text/html", index_html);
+    action = 0;
+  });
+
+  server.on("/forward", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", "Moving forward");
+    action = 1;
+  });
+
+  server.on("/backward", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", "Moving backward");
+    action = 2;
+  });
+
+  server.on("/left", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", "Moving left");
+    action = 3;
+  });
+
+  server.on("/right", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", "Moving right");
+    action = 4;
+  });
+
+  server.on("/stop", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", "Stopped motor");
+    action = 5;
+  });
+
+  server.on("/ledon", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", "Led on");
+    action = 6;
+  });
+
+  server.on("/ledoff", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(200, "text/plain", "Led off");
+    action = 7;
+  });
 
   server.begin();
   Serial.println("HTTP server started");
 
 }
 
-void handle_OnConnect() {
-  Serial.println("Client connect to root");
-  server.send(200, "text/html", "<b>Welcome to Robot</b>"); 
-}
 
-void startMotor (){
-    Serial.printf("starting motor at max speed\n");
+void motorBackward (){
+  Serial.printf("Moving backward\n");
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);  
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);  
+  
   digitalWrite(in1, HIGH);
   digitalWrite(in2, LOW);
-  server.send(200, "text/html", "Motor started"); 
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+  
+  ledcWrite(pwmChannel1, 200);
+  ledcWrite(pwmChannel2, 200);
+  
+  //delay(5000);
+
   
 }
 
-void stopMotor () {
-    Serial.printf("stopping motor\n\n");
+void motorForward (){
+  Serial.printf("Moving forward\n");
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);  
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);  
+  
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+  
+  ledcWrite(pwmChannel1, 200);
+  ledcWrite(pwmChannel2, 200);
+  
+  //delay(5000);
+
+}
+
+void motorLeft (){
+  Serial.printf("Moving left\n");
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);  
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);  
+  
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, HIGH);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+  
+  ledcWrite(pwmChannel1, 200);
+}
+
+void motorRight (){
+  Serial.printf("Moving right\n");
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);  
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);  
+  
   digitalWrite(in1, LOW);
   digitalWrite(in2, LOW);
-  server.send(200, "text/html", "Motor stopped"); 
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, HIGH);
+  
+  ledcWrite(pwmChannel2, 200);
+}
+
+void motorStop () {
+  Serial.printf("Stopping motor\n\n");
+  pinMode(in1, OUTPUT);
+  pinMode(in2, OUTPUT);   
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);   
+  
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
   
 }
 
 void accelerateMotor () {
-
-   server.send(200, "text/html", "Motor accelerated"); 
  
-    // Accelerate from zero to maximum speed
+  // Accelerate from zero to maximum speed
   Serial.printf("accelerating motor\n");
 
   for (int i = 100; i < 256; i++) {
-    ledcWrite(pwmChannel, i);
+    ledcWrite(pwmChannel1, i);
+    ledcWrite(pwmChannel2, i);
+    
     //analogWrite(enA, i);
     delay(50);
   }  
 
 }
 
-// the loop function runs over and over again forever
-void loop() {
-    server.handleClient();
-
-  //Serial.printf("Blink on-board led\n");
+void blinkLed() {
+  Serial.printf("Blink on-board led\n");
 
   digitalWrite(ledPin, HIGH);   // turn the LED on (HIGH is the voltage level)
   delay(100);                  // wait for a second
   digitalWrite(ledPin, LOW);    // turn the LED off by making the voltage LOW
-  delay(100);                  // wait for a second
+  delay(100);   
+}
 
-  //delay(5000);
-  //digitalWrite(in1, LOW);
-  //digitalWrite(in2, LOW);
+void ledOn() {
+  Serial.printf("Led on\n");
+  pinMode(ledPin, OUTPUT);
+  digitalWrite(ledPin, HIGH);   // turn the LED on (HIGH is the voltage level)
+  delay(1000);   
+
+}
+
+void ledOff() {
+  Serial.printf("Led off\n");
+  pinMode(ledPin, OUTPUT);  
+  digitalWrite(ledPin, LOW);    // turn the LED off by making the voltage LOW
+  //delay(100);   
+
+}
+
+// the loop function runs over and over again forever
+void loop() {
+    switch (action) {
+      case 0:
+        //blinkLed();
+        break;
+       case 1:
+        motorForward();
+        action = 0;
+        break;
+       case 2:
+        motorBackward();
+        action = 0;
+        break;
+       case 3:
+        motorLeft();
+        action = 0;
+        break;
+       case 4:
+        motorRight();
+        action = 0;
+        break;
+        
+       case 5:
+        motorStop();
+        action = 0;
+        break;
+        
+       case 6:
+         ledOn();
+         action = 0;
+         break;
+       case 7:
+        ledOff();
+        action = 0;
+        break;
+        
+    }
+  
   
 }
