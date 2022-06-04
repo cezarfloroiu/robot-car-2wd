@@ -1,72 +1,118 @@
-/*
-  Blink
-*/
+const int ledPin = 19;
 
-// ledPin refers to ESP32 GPIO 23
-const int ledPin = 2;
+// motor 1
 const int in1 = 25;
 const int in2 = 33;
 const int enA = 32;
 
+// motor 2
+const int in3 = 26;
+const int in4 = 27;
+const int enB = 14;
+
 // Setting PWM properties
 const int freq = 30000;
-const int pwmChannel = 0;
+const int pwmChannel1 = 0;
+const int pwmChannel2 = 1;
 const int resolution = 8;
-
-
+ 
 // the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(115200);
   // initialize digital pin ledPin as an output.
   pinMode(ledPin, OUTPUT);
-  
   pinMode(in1, OUTPUT);
   pinMode(in2, OUTPUT);
   pinMode(enA, OUTPUT);
+  pinMode(in3, OUTPUT);
+  pinMode(in4, OUTPUT);
+  pinMode(enB, OUTPUT);
 
  // configure PWM functionalitites
-  ledcSetup(pwmChannel, freq, resolution);
-  ledcAttachPin(enA, pwmChannel);
+  ledcSetup(pwmChannel1, freq, resolution);
+  ledcAttachPin(enA, pwmChannel1);
+  ledcSetup(pwmChannel2, freq, resolution);
+  ledcAttachPin(enB, pwmChannel2);
 
+  digitalWrite(ledPin, LOW);
   digitalWrite(in1, LOW);
   digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
 
 
 }
 
-// the loop function runs over and over again forever
-void loop() {
+
+void startMotor (){
+  Serial.printf("starting motor at max speed\n");
+  digitalWrite(in1, HIGH);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, HIGH);
+  digitalWrite(in4, LOW);
+  
+  ledcWrite(pwmChannel1, 200);
+  ledcWrite(pwmChannel2, 200);
+  
+  delay(5000);
+  Serial.printf("motor has now started");
+  
+}
+
+void stopMotor () {
+  Serial.printf("stopping motor\n\n");
+  digitalWrite(in1, LOW);
+  digitalWrite(in2, LOW);
+  digitalWrite(in3, LOW);
+  digitalWrite(in4, LOW);
+  
+}
+
+void accelerateMotor () {
+ 
+  // Accelerate from zero to maximum speed
+  Serial.printf("accelerating motor\n");
+
+  for (int i = 100; i < 256; i++) {
+    ledcWrite(pwmChannel1, i);
+    //analogWrite(enA, i);
+    delay(50);
+  }  
+
+}
+
+void blinkLed() {
   Serial.printf("Blink on-board led\n");
 
   digitalWrite(ledPin, HIGH);   // turn the LED on (HIGH is the voltage level)
   delay(100);                  // wait for a second
   digitalWrite(ledPin, LOW);    // turn the LED off by making the voltage LOW
-  delay(100);                  // wait for a second
+  delay(100);   
+}
 
+void ledOn() {
+  Serial.printf("Led on\n");
+  pinMode(ledPin, OUTPUT);  
+  digitalWrite(ledPin, HIGH);   // turn the LED on (HIGH is the voltage level)
+  delay(1000);   
+  Serial.printf("led is on");
 
-  Serial.printf("starting motor at max speed\n");
-  digitalWrite(in1, HIGH);
-  digitalWrite(in2, LOW);
+}
 
-  delay(2000);
+void ledOff() {
+  Serial.printf("Led off\n");
+  pinMode(ledPin, OUTPUT);    
+  digitalWrite(ledPin, LOW);    // turn the LED off by making the voltage LOW
+  delay(1000);   
+  Serial.printf("led is off");
 
-  // Accelerate from zero to maximum speed
-  Serial.printf("accelerating motor\n");
+}
 
-  for (int i = 100; i < 256; i++) {
-    ledcWrite(pwmChannel, i);
-    //analogWrite(enA, i);
-    delay(50);
-  }  
-
-  Serial.printf("stopping motor\n\n");
-  digitalWrite(in1, LOW);
-  digitalWrite(in2, LOW);
-
-  delay(2000);
-  
-  //delay(5000);
-  //digitalWrite(in1, LOW);
-  //digitalWrite(in2, LOW);
-  
+// the loop function runs over and over again forever
+void loop() {
+  ledOn();
+  startMotor();  
+  //accelerateMotor();
+  stopMotor();
+  ledOff();
 }
