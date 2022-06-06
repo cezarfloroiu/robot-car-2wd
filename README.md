@@ -7,3 +7,8 @@ Parts used in the project:
 - FT232RL USB to TTL adaptor
 - L298N Motor driver (6V, 4A => P = 24 Wh).  
 - HC-SR04 Ultrasonic distance sensor - 5V, 15mA => P = 0, 075 Wh)
+
+
+PCB:
+- PCB design: https://easyeda.com/
+- PCB printing: https://jlcpcb.com/
