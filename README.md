@@ -10,5 +10,6 @@ Parts used in the project:
 
 
 PCB:
-- PCB design: https://easyeda.com/
-- PCB printing: https://jlcpcb.com/
+- PCB design: https://easyeda.com/ 
+- PCB printing: https://jlcpcb.com/ , https://pcbway.com
+- 
