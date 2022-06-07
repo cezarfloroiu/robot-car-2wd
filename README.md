@@ -1,5 +1,4 @@
-# Robot car 2WD with ESP32
-My AI robot
+# Robot 2WD car with ESP32
 
 Parts used in the project:
 - battery (AA LR6, 4 x 1,5V, approx 3Ah => P = 36 Wh)
