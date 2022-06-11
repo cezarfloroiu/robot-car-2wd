@@ -2,12 +2,13 @@
 #include "ESPAsyncWebServer.h"
 
 /*Put your SSID & Password*/
-const char* ssid = "Livebox-"; // Enter SSID here
+const char* ssid = ""; // Enter SSID here
 const char* password = "";  //Enter Password here
 
 AsyncWebServer server(80);
 
 
+// ledPin refers to ESP32 GPIO 23
 const int ledPin = 19;
 
 // motor 1
@@ -27,13 +28,23 @@ const int pwmChannel1 = 0;
 const int pwmChannel2 = 1;
 const int resolution = 8;
 
-int action = 0; // 0 : nothing, 1 : startMotor, 2: stopMotor, ...
+int action = 0; // 0 : nothing, 1 : startMotor, 2: stopMotor
+
+// ultrasonic sensor 
+const int trigPin = 12; //5
+const int echoPin = 13; // 18
+
+//define sound speed in cm/uS
+#define SOUND_SPEED 0.034
+
+long duration;
+float distance = 0;
 
 // HTML web page
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML><html>
   <head>
-    <title>ESP Pushbutton Web Server</title>
+    <title>Robot Server</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       body { font-family: Arial; text-align: center; margin:0px auto; padding-top: 30px;}
@@ -43,10 +54,10 @@ const char index_html[] PROGMEM = R"rawliteral(
         text-align: center;
         outline: none;
         color: #fff;
-        background-color: #2f4468;
+        background-color: #0000ff;
         border: none;
         border-radius: 5px;
-        box-shadow: 0 6px #999;
+        box-shadow: 0 3px #999;
         cursor: pointer;
         -webkit-touch-callout: none;
         -webkit-user-select: none;
@@ -62,18 +73,23 @@ const char index_html[] PROGMEM = R"rawliteral(
         box-shadow: 0 4px #666;
         transform: translateY(2px);
       }
+    
+    .red {
+    background-color: #ff0000;
+    }
     </style>
   </head>
   <body>
-    <h1>B Robot</h1>
+    <h1>Robot Server</h1>
     <br />
     <button class="button" onClick="doAction('forward');">FORWARD</button>
-    <button class="button" onClick="doAction('backward');">BACKWARD</button>
     <br /><br />
     <button class="button" onClick="doAction('left');">LEFT</button>
     <button class="button" onClick="doAction('right');">RIGHT</button>
     <br /><br />    
-    <button class="button" onClick="doAction('stop');">STOP</button>
+    <button class="button" onClick="doAction('backward');">BACKWARD</button>
+    <br /><br />    <br /><br /> 
+    <button class="button red" onClick="doAction('stop');">STOP</button>
     
    <script>
    function doAction(x) {
@@ -96,6 +112,8 @@ void setup() {
   pinMode(in3, OUTPUT);
   pinMode(in4, OUTPUT);
   pinMode(enB, OUTPUT);
+  pinMode(trigPin, OUTPUT); // Sets the trigPin as an Output
+  pinMode(echoPin, INPUT); // Sets the echoPin as an Input
 
  // configure PWM functionalitites
   ledcSetup(pwmChannel1, freq, resolution);
@@ -284,7 +302,7 @@ void ledOn() {
   Serial.printf("Led on\n");
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(1000);   
+  //delay(1000);   
 
 }
 
@@ -296,14 +314,43 @@ void ledOff() {
 
 }
 
+float getSensorDistance() {
+// Clears the trigPin
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  // Sets the trigPin on HIGH state for 10 micro seconds
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  
+  // Reads the echoPin, returns the sound wave travel time in microseconds
+  duration = pulseIn(echoPin, HIGH);
+  
+  // Calculate the distance
+  float distanceCm = duration * SOUND_SPEED/2;
+
+  return distanceCm;
+
+}
 // the loop function runs over and over again forever
 void loop() {
+
+   distance = getSensorDistance();
+  // Prints the distance in the Serial Monitor
+  //Serial.print("Distance (cm): ");
+  //Serial.println(distance);
+
+  // safe stop in case there's an obstacle in front
+  if (distance < 10)
+    motorStop();
+              
     switch (action) {
       case 0:
         //blinkLed();
         break;
        case 1:
-        motorForward();
+        if (distance > 10)
+          motorForward();
         action = 0;
         break;
        case 2:
@@ -335,5 +382,8 @@ void loop() {
         
     }
   
+  
+  delay(100);  
+
   
 }
